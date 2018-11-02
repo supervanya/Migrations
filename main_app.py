@@ -32,6 +32,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 manager = Manager(app)
 # moment = Moment(app) # For time # Later
 db = SQLAlchemy(app) # For database use
+#  adding migration options for the manager
+migrate = Migrate(app, db) # For database use/updating
+manager.add_command('db', MigrateCommand) # Add migrate command to manager
 
 
 #########
@@ -47,6 +50,8 @@ class Album(db.Model):
     __tablename__ = "albums"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64))
+    producers = db.Column(db.String(64))
+
     artists = db.relationship('Artist',secondary=collections,backref=db.backref('albums',lazy='dynamic'),lazy='dynamic')
     songs = db.relationship('Song',backref='Album')
 
@@ -55,6 +60,7 @@ class Artist(db.Model):
     __tablename__ = "artists"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64))
+
     songs = db.relationship('Song',backref='Artist')
 
     def __repr__(self):
@@ -66,6 +72,7 @@ class Song(db.Model):
     album_id = db.Column(db.Integer, db.ForeignKey("albums.id"))
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"))
     genre = db.Column(db.String(64))
+    rating = db.Column(db.Float)
 
     def __repr__(self):
         return "{}, genre : {}".format(self.title, self.genre)
@@ -84,6 +91,11 @@ class SongForm(FlaskForm):
     rating = FloatField("What is your rating of this song?", validators = [Required()])
     submit = SubmitField('Submit')
 
+class UpdateRatingForm(FlaskForm):
+    rating = FloatField("Song rating?", validators = [Required()])
+    submit = SubmitField('Submit')
+
+
 ##### Helper functions
 
 ### For database additions / get_or_create functions
@@ -98,12 +110,12 @@ def get_or_create_artist(db_session,artist_name):
         db_session.commit()
         return artist
 
-def get_or_create_album(db_session, album_name, artists_list=[]):
+def get_or_create_album(db_session, album_name, producers, artists_list=[]):
     album = db_session.query(Album).filter_by(name=album_name).first() # by name filtering for album
     if album:
         return album
     else:
-        album = Album(name=album_name)
+        album = Album(name=album_name, producers=producers)
         for artist in artists_list:
             artist = get_or_create_artist(db_session,artist)
             album.artists.append(artist)
@@ -151,20 +163,35 @@ def index():
         return redirect(url_for('see_all'))
     return render_template('index.html', form=form,num_songs=num_songs)
 
-@app.route('/all_songs')
+@app.route('/all_songs', methods=['GET', 'POST'])
 def see_all():
     all_songs = [] # To be tuple list of title, genre
     songs = Song.query.all()
+    form = UpdateRatingForm()
     for s in songs:
         artist = Artist.query.filter_by(id=s.artist_id).first()
         all_songs.append((s.title,artist.name, s.genre))
-    return render_template('all_songs.html',all_songs=all_songs)
+    return render_template('all_songs.html',all_songs=all_songs, form=form)
 
 @app.route('/all_artists')
 def see_all_artists():
     artists = Artist.query.all()
     names = [(a.name, len(Song.query.filter_by(artist_id=a.id).all())) for a in artists]
     return render_template('all_artists.html',artist_names=names)
+
+@app.route('/update/<song>', methods=['GET', 'POST'])
+def update_rating(song):
+        print(song)
+        form = UpdateRatingForm()
+        if form.validate_on_submit():
+            new_rating = form.rating.data
+            s = Song.query.filter_by(title = song).first()
+            s.rating = new_rating
+            db.session.commit()
+            print("rating of {} was submitted successfully".format(form.rating.data) )
+            return redirect(url_for('see_all'))
+        flash(form.errors)
+        return redirect(url_for('see_all'))
 
 
 if __name__ == '__main__':

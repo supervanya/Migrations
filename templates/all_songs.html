@@ -1,8 +1,18 @@
 <ul>
 {% for sg in all_songs %}
-<li>{{ sg[0] }} by {{ sg[1] }} - {{ sg[2] }}
+<li><b>{{ sg[0] }}</b> by {{ sg[1] }} <br> {{ sg[2] }}
+    <form method="POST" action="/update/{{ sg[0] }}">
+    {{ form.hidden_tag() }}
+    {{ form.rating.label }} {{ form.rating() }}
+    {{ form.submit() }}
+   </form>
  </li>
  <br>
+
+
+ <br>
+
+
 {% endfor %}
 </ul>
 
