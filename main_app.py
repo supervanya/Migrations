@@ -110,12 +110,12 @@ def get_or_create_artist(db_session,artist_name):
         db_session.commit()
         return artist
 
-def get_or_create_album(db_session, album_name, producers, artists_list=[]):
+def get_or_create_album(db_session, album_name, artists_list=[]):
     album = db_session.query(Album).filter_by(name=album_name).first() # by name filtering for album
     if album:
         return album
     else:
-        album = Album(name=album_name, producers=producers)
+        album = Album(name=album_name)
         for artist in artists_list:
             artist = get_or_create_artist(db_session,artist)
             album.artists.append(artist)
@@ -168,9 +168,9 @@ def see_all():
     all_songs = [] # To be tuple list of title, genre
     songs = Song.query.all()
     form = UpdateRatingForm()
-    for s in songs:
+    for s in sorted(songs, key=lambda a: a.title):
         artist = Artist.query.filter_by(id=s.artist_id).first()
-        all_songs.append((s.title,artist.name, s.genre))
+        all_songs.append((s.title,artist.name, s.genre, s.rating))
     return render_template('all_songs.html',all_songs=all_songs, form=form)
 
 @app.route('/all_artists')
